@@ -2,7 +2,7 @@ import { parentPort } from 'node:worker_threads'
 import { Clients, kAddClient } from './Clients.js'
 import type { WorkerData } from './ServiceWorkerContainer.js'
 import { ServiceWorker } from './ServiceWorker.js'
-import { Client } from './Client.js'
+import { Client, SerializedClient } from './Client.js'
 
 /**
  * The global object of the Service Worker.
@@ -22,17 +22,7 @@ export class ServiceWorkerGlobalScope extends EventTarget {
     this.#parentData = parentData
     this.serviceWorker = this.#createServiceWorker()
     this.clients = new Clients(this.serviceWorker)
-
-    // Add the main thread as the client.
-    const { clientInfo, clientMessagePort } = parentData
-    const client = new Client(
-      clientInfo.id,
-      clientInfo.url,
-      clientInfo.type,
-      clientInfo.frameType,
-    )
-    client.postMessage = clientMessagePort.postMessage.bind(clientMessagePort)
-    this.clients[kAddClient](client)
+    this.#addClient(parentData.clientInfo)
   }
 
   // Create a representation of this Service Worker
@@ -70,5 +60,17 @@ export class ServiceWorkerGlobalScope extends EventTarget {
     })
 
     return serviceWorker
+  }
+
+  #addClient(clientInfo: SerializedClient): void {
+    const { clientMessagePort } = this.#parentData
+    const client = new Client(
+      clientInfo.id,
+      clientInfo.url,
+      clientInfo.type,
+      clientInfo.frameType,
+    )
+    client.postMessage = clientMessagePort.postMessage.bind(clientMessagePort)
+    this.clients[kAddClient](client)
   }
 }
