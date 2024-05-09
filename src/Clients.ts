@@ -7,12 +7,18 @@ interface MatchAllOptions {
   type?: ClientType
 }
 
+export const kAddClient = Symbol('kAddClient')
+
 export class Clients {
   readonly #serviceWorker: ServiceWorker
   readonly #clients = new Map<string, Client>()
 
   constructor(serviceWorker: ServiceWorker) {
     this.#serviceWorker = serviceWorker
+  }
+
+  [kAddClient](client: Client): void {
+    this.#clients.set(client.id, client)
   }
 
   /**

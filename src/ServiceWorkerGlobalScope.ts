@@ -1,7 +1,8 @@
 import { parentPort } from 'node:worker_threads'
-import { Clients } from './Clients.js'
+import { Clients, kAddClient } from './Clients.js'
 import type { WorkerData } from './ServiceWorkerContainer.js'
 import { ServiceWorker } from './ServiceWorker.js'
+import { Client } from './Client.js'
 
 /**
  * The global object of the Service Worker.
@@ -21,6 +22,17 @@ export class ServiceWorkerGlobalScope extends EventTarget {
     this.#parentData = parentData
     this.serviceWorker = this.#createServiceWorker()
     this.clients = new Clients(this.serviceWorker)
+
+    // Add the main thread as the client.
+    const { clientInfo, clientMessagePort } = parentData
+    const client = new Client(
+      clientInfo.id,
+      clientInfo.url,
+      clientInfo.type,
+      clientInfo.frameType,
+    )
+    client.postMessage = clientMessagePort.postMessage.bind(clientMessagePort)
+    this.clients[kAddClient](client)
   }
 
   // Create a representation of this Service Worker
@@ -37,6 +49,16 @@ export class ServiceWorkerGlobalScope extends EventTarget {
       },
     )
 
+    process
+      .once('uncaughtException', () => {
+        serviceWorker.dispatchEvent(new Event('error'))
+      })
+      .once('unhandledRejection', () => {
+        serviceWorker.dispatchEvent(new Event('error'))
+      })
+
+    // Forward Service Worker events to the client
+    // so it updates its Service Worker instance accordingly.
     serviceWorker.addEventListener('statechange', () => {
       parentPort!.postMessage({
         type: 'worker/statechange',
@@ -46,14 +68,6 @@ export class ServiceWorkerGlobalScope extends EventTarget {
     serviceWorker.addEventListener('error', () => {
       parentPort!.postMessage({ type: 'worker/error' })
     })
-
-    process
-      .once('uncaughtException', () => {
-        serviceWorker.dispatchEvent(new Event('error'))
-      })
-      .once('unhandledRejection', () => {
-        serviceWorker.dispatchEvent(new Event('error'))
-      })
 
     return serviceWorker
   }

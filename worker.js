@@ -4,11 +4,13 @@ self.addEventListener('install', (event) => {
 
 self.addEventListener('activate', async (event) => {
   console.log('> [e] activate')
-  console.log('clients:', await self.clients.matchAll())
+
+  const clients = await self.clients.matchAll()
+  clients[0].postMessage('hi from worker!')
 })
 
 self.addEventListener('message', (event) => {
-  console.log('> [e] message', event.data)
+  console.log('> [e] message from main:', event.data)
 })
 
 self.addEventListener('fetch', (event) => {
