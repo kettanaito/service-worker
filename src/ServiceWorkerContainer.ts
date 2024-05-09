@@ -6,6 +6,11 @@ import {
 } from './ServiceWorkerRegistration.js'
 import { ServiceWorker } from './ServiceWorker.js'
 
+export interface WorkerData {
+  scriptUrl: string
+  options: ServiceWorkerRegistrationOptions
+}
+
 /**
  * @see https://developer.mozilla.org/en-US/docs/Web/API/ServiceWorkerContainer
  */
@@ -29,20 +34,17 @@ export class ServiceWorkerContainer {
     scriptUrl: string,
     options: ServiceWorkerRegistrationOptions = {},
   ) {
-    const worker = new Worker(
-      new URL('./ServiceWorkerGlobalScope.ts', import.meta.url),
-      {
-        name: `[worker ${scriptUrl}]`,
-        workerData: {
-          scriptUrl,
-        },
-      },
-    )
-    const serviceWorker = new ServiceWorker(scriptUrl, worker)
+    const worker = new Worker(new URL('./worker.ts', import.meta.url), {
+      name: `[worker ${scriptUrl}]`,
+      workerData: {
+        scriptUrl,
+        options,
+      } satisfies WorkerData,
+    })
+    const serviceWorker = this.#createServiceWorker(scriptUrl, worker)
     const registration = new ServiceWorkerRegistration(serviceWorker)
     this.#registration = registration
 
-    // Resolve the "ready" Promise once the worker is activating.
     serviceWorker.addEventListener('statechange', () => {
       if (serviceWorker.state === 'activating') {
         this.#ready.resolve(registration)
@@ -50,5 +52,27 @@ export class ServiceWorkerContainer {
     })
 
     return registration
+  }
+
+  #createServiceWorker(scriptUrl: string, worker: Worker): ServiceWorker {
+    const serviceWorker = new ServiceWorker(
+      scriptUrl,
+      worker.postMessage.bind(worker),
+    )
+
+    worker.addListener('message', (message) => {
+      switch (message.type) {
+        case 'worker/statechange': {
+          serviceWorker.state = message.state
+          break
+        }
+        case 'worker/error': {
+          serviceWorker.dispatchEvent(new Event('error'))
+          break
+        }
+      }
+    })
+
+    return serviceWorker
   }
 }

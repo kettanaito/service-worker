@@ -2,8 +2,9 @@ self.addEventListener('install', (event) => {
   console.log('> [e] install')
 })
 
-self.addEventListener('activate', (event) => {
+self.addEventListener('activate', async (event) => {
   console.log('> [e] activate')
+  console.log('clients:', await self.clients.matchAll())
 })
 
 self.addEventListener('message', (event) => {

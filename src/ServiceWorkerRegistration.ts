@@ -36,8 +36,4 @@ export class ServiceWorkerRegistration extends EventTarget {
     }
     return null
   }
-
-  async unregister() {
-    throw new Error('Not implemented')
-  }
 }
