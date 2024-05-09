@@ -1,0 +1,11 @@
+{
+  "include": ["**/*.ts"],
+  "exclude": ["node_modules"],
+  "compilerOptions": {
+    "strict": true,
+    "target": "esnext",
+    "module": "esnext",
+    "moduleResolution": "nodenext",
+    "lib": ["es2022", "dom"]
+  }
+}

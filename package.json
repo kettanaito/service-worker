@@ -1,0 +1,14 @@
+{
+  "type": "module",
+  "scripts": {
+    "start": "tsx ./usage.ts"
+  },
+  "devDependencies": {
+    "tsx": "^4.9.3",
+    "typescript": "^5.4.5"
+  },
+  "dependencies": {
+    "@open-draft/deferred-promise": "^2.2.0",
+    "@types/node": "^20.12.11"
+  }
+}
