@@ -358,16 +358,16 @@ export class Cache {
     const queryUrl = new URL(requestQuery.url)
     const cachedUrl = new URL(request.url)
 
+    // Fragments are ignored when comparing URLs.
+    queryUrl.hash = ''
+    cachedUrl.hash = ''
+
     if (options?.ignoreSearch) {
       queryUrl.search = ''
       cachedUrl.search = ''
     }
 
-    // Compare queryUrl cacheUrl without the fragments.
-    /**
-     * @todo @fixme Implement the URL matching.
-     */
-    if ('queryUrl' !== 'cachedUrl') {
+    if (queryUrl.toString() !== cachedUrl.toString()) {
       return false
     }
 
