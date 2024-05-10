@@ -17,10 +17,10 @@ interface CacheBatchOperation {
  * @see https://developer.mozilla.org/en-US/docs/Web/API/Cache
  */
 export class Cache {
-  #store: Map<Request, Response>
+  #requestResponseList: Array<[Request, Response]>
 
   constructor() {
-    this.#store = new Map()
+    this.#requestResponseList = []
   }
 
   /**
@@ -236,10 +236,12 @@ export class Cache {
     }
 
     const promise = new DeferredPromise<Array<Request>>()
-    let requests = []
+    let requests: Array<Request> = []
 
     if (typeof request === 'undefined') {
-      requests = Array.from(this.#store.keys())
+      for (const [request] of this.#requestResponseList) {
+        requests.push(request)
+      }
     } else {
       const requestResponses = this.#queryCache(innerRequest, options)
       for (const requestResponse of requestResponses) {
@@ -294,7 +296,9 @@ export class Cache {
     const responses: Array<Response> = []
 
     if (typeof request === 'undefined') {
-      this.#store.forEach((response) => responses.push(response.clone()))
+      for (const [, response] of this.#requestResponseList) {
+        responses.push(response.clone())
+      }
     } else {
       const requestResponses = this.#queryCache(innerRequest, options)
       requestResponses.forEach(([, requestResponse]) =>
@@ -315,7 +319,9 @@ export class Cache {
   ): Array<[Request, Response]> {
     const resultList: Array<[Request, Response]> = []
     const storage =
-      typeof targetStorage === 'undefined' ? this.#store : targetStorage
+      typeof targetStorage === 'undefined'
+        ? this.#requestResponseList
+        : targetStorage
 
     for (const [request, response] of storage) {
       const cachedRequest = request
@@ -345,7 +351,7 @@ export class Cache {
     response: Response | null | undefined,
     options?: CacheQueryOptions,
   ): boolean {
-    if (options?.ignoreMethod === false && request.method !== 'GET') {
+    if (options?.ignoreMethod === false && !isGetRequest(request)) {
       return false
     }
 
@@ -386,8 +392,8 @@ export class Cache {
   #batchCacheOperations(
     operations: Array<CacheBatchOperation>,
   ): Array<[Request, Response]> {
-    const cache = this.#store
-    const backupCache = new Map(cache.entries())
+    const cache = this.#requestResponseList
+    const backupCache = [...cache]
     const addedItems = []
 
     try {
@@ -412,12 +418,7 @@ export class Cache {
           )
 
           for (const requestResponse of requestResponses) {
-            /**
-             * @fixme This should compare BOTH request and response
-             * before deciding which value to delete. I suspect one request
-             * can have multiple caches associated with it?
-             */
-            this.delete(requestResponse[0])
+            this.#deleteRequestResponse(requestResponse[0], requestResponse[1])
           }
         } else if (operation.type === 'put') {
           if (operation.response === null) {
@@ -443,10 +444,10 @@ export class Cache {
 
           requestResponses = this.#queryCache(innerRequest)
           for (const requestResponse of requestResponses) {
-            this.delete(requestResponse[0])
+            this.#deleteRequestResponse(requestResponse[0], requestResponse[1])
           }
 
-          cache.set(operation.request, operation.response!)
+          cache.push([operation.request, operation.response!])
           addedItems.push(operation.request, operation.response)
         }
 
@@ -455,10 +456,20 @@ export class Cache {
 
       return resultList
     } catch (error) {
-      this.#store.clear()
-      this.#store = new Map(backupCache.entries())
+      this.#requestResponseList = []
+      for (const requestResponse of backupCache) {
+        this.#requestResponseList.push(requestResponse)
+      }
       throw error
     }
+  }
+
+  #deleteRequestResponse(request: Request, response: Response): void {
+    this.#requestResponseList = this.#requestResponseList.filter(
+      (requestResponse) => {
+        return requestResponse[0] !== request && requestResponse[1] !== response
+      },
+    )
   }
 }
 
