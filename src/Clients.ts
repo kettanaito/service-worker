@@ -58,13 +58,12 @@ export class Clients {
    */
   public async claim(): Promise<undefined> {
     for (const [, client] of this.#clients) {
-      if (isWithinScope(client.url, this.#serviceWorker.scope))
-        if (client.url) {
-          /**
-           * @todo Set the current worker as the controller
-           * for all the clients that lie within its scope.
-           */
-        }
+      if (isWithinScope(client.url, this.#serviceWorker.scope)) {
+        /**
+         * @todo Set the current worker as the controller
+         * for all the clients that lie within its scope.
+         */
+      }
     }
   }
 
