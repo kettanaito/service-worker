@@ -3,7 +3,8 @@ import * as vm from 'node:vm'
 import { workerData, parentPort as maybeParentPort } from 'node:worker_threads'
 import type { WorkerData } from './ServiceWorkerContainer.js'
 import { ServiceWorkerGlobalScope } from './ServiceWorkerGlobalScope.js'
-import { FetchEvent } from './FetchEvent.js'
+import { InstallEvent } from './InstallEvent.js'
+import { ExtendableEvent, kPendingPromises } from './ExtendableEvent.js'
 
 const parentPort = maybeParentPort
 
@@ -36,26 +37,25 @@ script.runInNewContext({
   console,
 })
 
-globalScope.serviceWorker.state = 'installing'
-globalScope.dispatchEvent(new Event('install' /* @todo Client ref */))
-
-globalScope.serviceWorker.state = 'installed'
-globalScope.serviceWorker.state = 'activating'
-globalScope.serviceWorker.state = 'activated'
-
-globalScope.dispatchEvent(new Event('activate' /* @todo Client ref */))
-
 // Forward messages from the parent process
 // as the "message" events on the Service Worker.
 parentPort.addListener('message', (data) => {
   globalScope.dispatchEvent(new MessageEvent('message', { data }))
 })
 
-// Test.
-// process.nextTick(() => {
-//   globalScope.dispatchEvent(
-//     new FetchEvent('fetch', {
-//       request: new Request('https://example.com'),
-//     }),
-//   )
-// })
+async function startServiceWorkerLifeCycle() {
+  // Installed event.
+  globalScope.serviceWorker.state = 'installing'
+  const installEvent = new InstallEvent('install')
+  globalScope.dispatchEvent(installEvent)
+  await Promise.allSettled(installEvent[kPendingPromises])
+  globalScope.serviceWorker.state = 'installed'
+
+  // Activated event.
+  globalScope.serviceWorker.state = 'activating'
+  const activateEvent = new ExtendableEvent('activate')
+  globalScope.dispatchEvent(activateEvent)
+  await Promise.allSettled(activateEvent[kPendingPromises])
+  globalScope.serviceWorker.state = 'activated'
+}
+startServiceWorkerLifeCycle()

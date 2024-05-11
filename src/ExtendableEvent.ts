@@ -1,4 +1,4 @@
-const kPendingPromises = Symbol('kPendingPromises')
+export const kPendingPromises = Symbol('kPendingPromises')
 
 /**
  * @see https://w3c.github.io/ServiceWorker/#extendableevent-interface
