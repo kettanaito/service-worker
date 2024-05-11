@@ -1,52 +1,86 @@
 import { DeferredPromise } from '@open-draft/deferred-promise'
-import { InvalidStateError, NetworkError } from './utils/errors.js'
 import { ExtendableEvent } from './ExtendableEvent.js'
+import { InvalidStateError } from './utils/errors.js'
 
-export const kClientId = Symbol('kClientId')
-export const kRequest = Symbol('kRequest')
+export interface FetchEventInit extends EventInit {
+  request: Request
+  preloadResponse?: Promise<void>
+  clientId?: string
+  resultingClientId?: string
+  replacesClientId?: string
+  handled?: Promise<void>
+}
 
+const kRespondWithEntered = Symbol('kRespondWithEntered')
+const kWaitToRespond = Symbol('kWaitToRespond')
+const kRespondWithError = Symbol('kRespondWithError')
+
+/**
+ * @see https://w3c.github.io/ServiceWorker/#fetchevent-interface
+ */
 export class FetchEvent extends ExtendableEvent {
+  public readonly clientId: string
+  public readonly request: Request
+  public readonly preloadResponse: Promise<void>
+  public readonly resultingClientId: string
+  public readonly replacesClientId: string
   public readonly handled: Promise<void>;
 
-  [kClientId]: string = undefined as any;
-  [kRequest]: Request = undefined as any
+  [kRespondWithEntered]?: boolean;
+  [kWaitToRespond]?: boolean;
+  [kRespondWithError]?: boolean
 
-  constructor(type: string, options: EventInit) {
+  constructor(type: string, options: FetchEventInit) {
     super(type, options)
-    this.handled = new DeferredPromise<void>()
+    this.clientId = options.clientId || ''
+    this.request = options.request
+    this.preloadResponse = options.preloadResponse || Promise.resolve()
+    this.resultingClientId = options.resultingClientId || ''
+    this.replacesClientId = options.replacesClientId || ''
+    this.handled = options.handled || new DeferredPromise<void>()
   }
 
-  get clientId(): string {
-    return this[kClientId]
-  }
-
-  get request(): Request {
-    return this[kRequest]
-  }
-
+  /**
+   * @see https://w3c.github.io/ServiceWorker/#fetch-event-respondwith
+   */
   public async respondWith(
-    response: Response | Promise<Response>,
+    response: Promise<Response> | Response,
   ): Promise<void> {
-    if ((this.handled as DeferredPromise<void>).state !== 'pending') {
-      throw new InvalidStateError('')
+    if (this[kRespondWithEntered]) {
+      throw new InvalidStateError('Cannot call respondWith() multiple times')
     }
 
-    const endResponse = await response
+    const innerResponse = Promise.resolve(response)
+    this.waitUntil(innerResponse)
 
-    if (endResponse.type === 'opaque' && this.request.mode !== 'no-cors') {
-      throw new NetworkError('')
-    }
+    // This flag is never unset because a single FetchEvent
+    // can be responded to only once.
+    this[kRespondWithEntered] = true
+    this[kWaitToRespond] = true
 
-    if (
-      endResponse.type === 'opaqueredirect' &&
-      // @ts-expect-error Missing type.
-      this.request.mode !== 'manual'
-    ) {
-      throw new NetworkError('')
-    }
+    innerResponse
+      .then((response) => {
+        // Returning non-Response from ".respondWith()"
+        // results in a network error.
+        if (!(response instanceof Response)) {
+          this[kRespondWithError] = true
+          this.#handleFetch(Response.error())
+        } else {
+          this.#handleFetch(response)
+        }
 
-    if (endResponse.type === 'cors' && this.request.mode !== 'same-origin') {
-      throw new NetworkError('')
-    }
+        this[kWaitToRespond] = undefined
+      })
+      .catch(() => {
+        this[kRespondWithError] = true
+        this[kWaitToRespond] = undefined
+      })
+  }
+
+  #handleFetch(response: Response): void {
+    /**
+     * @todo Use the interceptor to respond to this request
+     * with the given Response.
+     */
   }
 }
