@@ -24,6 +24,8 @@ export class ServiceWorkerContainer {
   #registration?: ServiceWorkerRegistration
   readonly #ready: DeferredPromise<ServiceWorkerRegistration>
 
+  /** @todo Event handlers (oncontrollerchange, onmessage, onerror) */
+
   constructor() {
     this.#ready = new DeferredPromise<ServiceWorkerRegistration>()
   }
@@ -44,7 +46,7 @@ export class ServiceWorkerContainer {
       id: process.pid.toString(),
       url: parseModuleUrlFromStackTrace(new Error()),
       type: 'worker',
-      frameType: '???',
+      frameType: '???' /** @todo */,
     }
 
     const worker = new Worker(new URL('./worker.ts', import.meta.url), {

@@ -15,7 +15,7 @@ export class ServiceWorkerGlobalScope extends EventTarget {
   public readonly clients: Clients
   public readonly serviceWorker: ServiceWorker
   public readonly caches: CacheStorage
-  // public registration: unknown
+  // public registration: unknown /** @todo */
 
   constructor(parentData: WorkerData) {
     super()
