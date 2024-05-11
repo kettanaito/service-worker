@@ -1,6 +1,6 @@
 import { DeferredPromise } from '@open-draft/deferred-promise'
 
-interface CacheQueryOptions {
+export interface CacheQueryOptions {
   ignoreSearch?: boolean
   ignoreMethod?: boolean
   ignoreVary?: boolean
@@ -264,7 +264,7 @@ export class Cache {
    * @see https://w3c.github.io/ServiceWorker/#cache-match
    */
   public async match(
-    request: Request,
+    request: RequestInfo,
     options?: CacheQueryOptions,
   ): Promise<Response | undefined> {
     const allMatches = await this.matchAll(request, options)
@@ -278,12 +278,12 @@ export class Cache {
    * @see https://w3c.github.io/ServiceWorker/#cache-matchall
    */
   public async matchAll(
-    request?: Request,
+    request?: RequestInfo,
     options?: CacheQueryOptions,
   ): Promise<ReadonlyArray<Response>> {
     let innerRequest: Request
 
-    if (typeof request !== 'undefined') {
+    if (request instanceof Request) {
       innerRequest = request
 
       if (request.method !== 'GET' && options?.ignoreMethod) {
