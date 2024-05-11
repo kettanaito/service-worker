@@ -1,5 +1,10 @@
 self.addEventListener('install', (event) => {
   console.log('> [e] install')
+  event.waitUntil(
+    new Promise((resolve) => {
+      setTimeout(resolve, 2000)
+    }),
+  )
 })
 
 self.addEventListener('activate', async (event) => {

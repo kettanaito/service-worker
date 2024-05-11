@@ -14,6 +14,7 @@ if (!parentPort) {
 
 const parentData = workerData as WorkerData
 
+// Create the Service Worker's global scope object (`self`).
 const globalScope = new ServiceWorkerGlobalScope(parentData)
 
 process.once('uncaughtException', () => {
@@ -34,6 +35,8 @@ script.runInNewContext({
   global: globalScope,
   globalThis: globalScope,
   self: globalScope,
+  setTimeout,
+  setInterval,
   console,
 })
 
