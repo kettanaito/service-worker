@@ -17,10 +17,10 @@ interface CacheBatchOperation {
  * @see https://developer.mozilla.org/en-US/docs/Web/API/Cache
  */
 export class Cache {
-  #requestResponseList: Array<[Request, Response]>
+  #requestResponseList: Set<[Request, Response]>
 
   constructor() {
-    this.#requestResponseList = []
+    this.#requestResponseList = new Set()
   }
 
   /**
@@ -418,7 +418,7 @@ export class Cache {
           )
 
           for (const requestResponse of requestResponses) {
-            this.#deleteRequestResponse(requestResponse[0], requestResponse[1])
+            this.#requestResponseList.delete(requestResponse)
           }
         } else if (operation.type === 'put') {
           if (operation.response === null) {
@@ -444,10 +444,10 @@ export class Cache {
 
           requestResponses = this.#queryCache(innerRequest)
           for (const requestResponse of requestResponses) {
-            this.#deleteRequestResponse(requestResponse[0], requestResponse[1])
+            this.#requestResponseList.delete(requestResponse)
           }
 
-          cache.push([operation.request, operation.response!])
+          cache.add([operation.request, operation.response!])
           addedItems.push(operation.request, operation.response)
         }
 
@@ -456,20 +456,9 @@ export class Cache {
 
       return resultList
     } catch (error) {
-      this.#requestResponseList = []
-      for (const requestResponse of backupCache) {
-        this.#requestResponseList.push(requestResponse)
-      }
+      this.#requestResponseList = new Set(backupCache)
       throw error
     }
-  }
-
-  #deleteRequestResponse(request: Request, response: Response): void {
-    this.#requestResponseList = this.#requestResponseList.filter(
-      (requestResponse) => {
-        return requestResponse[0] !== request && requestResponse[1] !== response
-      },
-    )
   }
 }
 
