@@ -7,15 +7,18 @@ import {
 import { ServiceWorker } from './ServiceWorker.js'
 import { SerializedClient } from './Client.js'
 import { parseModuleUrlFromStackTrace } from './utils/parseModuleUrlFromStackTrace.js'
+import { interceptor } from './interceptor.js'
 
 export interface WorkerData {
   scriptUrl: string
   options: ServiceWorkerRegistrationOptions
   clientInfo: SerializedClient
   clientMessagePort: MessagePort
+  interceptorMessagePort: MessagePort
 }
 
 const clientMessageChannel = new MessageChannel()
+const interceptorMessageChannel = new MessageChannel()
 
 /**
  * @see https://developer.mozilla.org/en-US/docs/Web/API/ServiceWorkerContainer
@@ -56,8 +59,12 @@ export class ServiceWorkerContainer {
         options,
         clientInfo,
         clientMessagePort: clientMessageChannel.port2,
+        interceptorMessagePort: interceptorMessageChannel.port2,
       } satisfies WorkerData,
-      transferList: [clientMessageChannel.port2],
+      transferList: [
+        clientMessageChannel.port2,
+        interceptorMessageChannel.port2,
+      ],
     })
 
     const serviceWorker = this.#createServiceWorker(scriptUrl, worker)
@@ -69,6 +76,8 @@ export class ServiceWorkerContainer {
         this.#ready.resolve(registration)
       }
     })
+
+    this.#enableRequestInterception(interceptorMessageChannel)
 
     return registration
   }
@@ -101,5 +110,50 @@ export class ServiceWorkerContainer {
     })
 
     return serviceWorker
+  }
+
+  #enableRequestInterception(channel: MessageChannel): void {
+    interceptor.apply()
+
+    interceptor.on('request', async ({ requestId, request }) => {
+      const requestBody = await request.arrayBuffer()
+      channel.port1.postMessage(
+        {
+          type: 'request',
+          requestId,
+          request: {
+            method: request.method,
+            url: request.url,
+            headers: Object.fromEntries(request.headers.entries()),
+            body:
+              request.method === 'HEAD' || request.method === 'GET'
+                ? null
+                : requestBody,
+          },
+        },
+        [requestBody],
+      )
+
+      const responsePromise = new DeferredPromise<Response | undefined>()
+
+      const responseListener = (data: any) => {
+        if (requestId === data.requestId) {
+          /** @todo Response may also be undefined */
+          const response = new Response(data.response.body, data.response)
+          responsePromise.resolve(response)
+
+          // Remove this listener since the request has been handled.
+          channel.port1.removeListener('message', responseListener)
+        }
+      }
+      channel.port1.addListener('message', responseListener)
+
+      const response = await responsePromise
+      if (response) {
+        request.respondWith(response)
+      }
+    })
+
+    /** @todo Dispose of the interceptor */
   }
 }

@@ -3,8 +3,9 @@ import * as vm from 'node:vm'
 import { workerData, parentPort as maybeParentPort } from 'node:worker_threads'
 import type { WorkerData } from './ServiceWorkerContainer.js'
 import { ServiceWorkerGlobalScope } from './ServiceWorkerGlobalScope.js'
-import { InstallEvent } from './InstallEvent.js'
 import { ExtendableEvent, kPendingPromises } from './ExtendableEvent.js'
+import { InstallEvent } from './InstallEvent.js'
+import { FetchEvent, kResponsePromise } from './FetchEvent.js'
 
 const parentPort = maybeParentPort
 
@@ -17,7 +18,8 @@ const parentData = workerData as WorkerData
 // Create the Service Worker's global scope object (`self`).
 const globalScope = new ServiceWorkerGlobalScope(parentData)
 
-process.once('uncaughtException', () => {
+process.once('uncaughtException', (error) => {
+  console.error(error)
   globalScope.serviceWorker.dispatchEvent(new Event('error'))
 })
 
@@ -37,6 +39,11 @@ script.runInNewContext({
   self: globalScope,
   setTimeout,
   setInterval,
+  Blob,
+  FormData,
+  Headers,
+  Request,
+  Response,
   console,
 })
 
@@ -44,6 +51,42 @@ script.runInNewContext({
 // as the "message" events on the Service Worker.
 parentPort.addListener('message', (data) => {
   globalScope.dispatchEvent(new MessageEvent('message', { data }))
+})
+
+parentData.interceptorMessagePort.addListener('message', (data) => {
+  switch (data.type) {
+    case 'request': {
+      const { requestId, request: requestInit } = data
+      const request = new Request(requestInit.url, requestInit)
+      const fetchEvent = new FetchEvent('fetch', {
+        request,
+        /** @todo clientId */
+      })
+
+      globalScope.dispatchEvent(fetchEvent)
+
+      /** @todo What if there's no "fetch" listener? */
+      /** @todo What if the "fetch" listener didn't handle the request? */
+
+      fetchEvent[kResponsePromise].then(async (response) => {
+        const responseBody = await response.arrayBuffer()
+        parentData.interceptorMessagePort.postMessage(
+          {
+            type: 'response',
+            requestId,
+            response: {
+              status: response.status,
+              statusText: response.statusText,
+              headers: Object.fromEntries(response.headers.entries()),
+              body: response.body === null ? null : responseBody,
+            },
+          },
+          [responseBody],
+        )
+      })
+      break
+    }
+  }
 })
 
 async function startServiceWorkerLifeCycle() {

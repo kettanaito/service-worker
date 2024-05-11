@@ -14,6 +14,7 @@ export interface FetchEventInit extends EventInit {
 const kRespondWithEntered = Symbol('kRespondWithEntered')
 const kWaitToRespond = Symbol('kWaitToRespond')
 const kRespondWithError = Symbol('kRespondWithError')
+export const kResponsePromise = Symbol('kResponsePromise')
 
 /**
  * @see https://w3c.github.io/ServiceWorker/#fetchevent-interface
@@ -28,7 +29,8 @@ export class FetchEvent extends ExtendableEvent {
 
   [kRespondWithEntered]?: boolean;
   [kWaitToRespond]?: boolean;
-  [kRespondWithError]?: boolean
+  [kRespondWithError]?: boolean;
+  [kResponsePromise]: DeferredPromise<Response>
 
   constructor(type: string, options: FetchEventInit) {
     super(type, options)
@@ -38,6 +40,8 @@ export class FetchEvent extends ExtendableEvent {
     this.resultingClientId = options.resultingClientId || ''
     this.replacesClientId = options.replacesClientId || ''
     this.handled = options.handled || new DeferredPromise<void>()
+
+    this[kResponsePromise] = new DeferredPromise<Response>()
   }
 
   /**
@@ -78,9 +82,6 @@ export class FetchEvent extends ExtendableEvent {
   }
 
   #handleFetch(response: Response): void {
-    /**
-     * @todo Use the interceptor to respond to this request
-     * with the given Response.
-     */
+    this[kResponsePromise].resolve(response)
   }
 }

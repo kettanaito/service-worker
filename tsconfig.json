@@ -6,6 +6,6 @@
     "target": "esnext",
     "module": "esnext",
     "moduleResolution": "nodenext",
-    "lib": ["es2022", "dom"]
+    "lib": ["es2022", "dom", "dom.iterable"]
   }
 }

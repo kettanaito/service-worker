@@ -1,10 +1,5 @@
 self.addEventListener('install', (event) => {
   console.log('> [e] install')
-  event.waitUntil(
-    new Promise((resolve) => {
-      setTimeout(resolve, 2000)
-    }),
-  )
 })
 
 self.addEventListener('activate', async (event) => {
@@ -20,4 +15,5 @@ self.addEventListener('message', (event) => {
 
 self.addEventListener('fetch', (event) => {
   console.log('> [e] fetch', event.request.method, event.request.url)
+  event.respondWith(new Response('hello world'))
 })

@@ -8,6 +8,7 @@
     "typescript": "^5.4.5"
   },
   "dependencies": {
+    "@mswjs/interceptors": "^0.29.1",
     "@open-draft/deferred-promise": "^2.2.0",
     "@types/node": "^20.12.11"
   }
