@@ -225,15 +225,11 @@ export class Cache {
     request?: RequestInfo,
     options?: CacheQueryOptions
   ): Promise<ReadonlyArray<Request>> {
-    let innerRequest: Request | null = null
+    const innerRequest =
+      request instanceof Request ? request : new Request(request)
 
-    if (request instanceof Request) {
-      innerRequest = request
-      if (innerRequest.method !== 'GET') {
-        return Promise.resolve([])
-      }
-    } else if (typeof request === 'string') {
-      innerRequest = new Request(request)
+    if (innerRequest.method !== 'GET') {
+      return Promise.resolve([])
     }
 
     const promise = new DeferredPromise<Array<Request>>()
