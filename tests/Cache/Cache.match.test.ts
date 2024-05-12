@@ -124,7 +124,7 @@ it('ignores response "vary" header if "ignoreVary" is true', async () => {
   )
 })
 
-it('matches cache entry by url with fragment', async () => {
+it('ignores request url fragment', async () => {
   const cache = new Cache()
   await cache.put(url('/foo'), new Response('hello world'))
   await expect(cache.match(url('/foo#bar'))).resolves.toMatchResponse(
