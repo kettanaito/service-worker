@@ -62,6 +62,9 @@ export class FetchEvent extends ExtendableEvent {
     this[kRespondWithEntered] = true
     this[kWaitToRespond] = true
 
+    /**
+     * @note This is a simplified implementation of the spec.
+     */
     innerResponse
       .then((response) => {
         // Returning non-Response from ".respondWith()"

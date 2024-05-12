@@ -1,0 +1,9 @@
+{
+  "compilerOptions": {
+    "strict": true,
+    "skipLibCheck": true,
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "lib": ["dom.iterable"]
+  }
+}

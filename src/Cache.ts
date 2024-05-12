@@ -43,7 +43,7 @@ export class Cache {
       if (!isValidRequestUrlScheme(innerRequest)) {
         throw new TypeError('Request scheme is not valid')
       }
-      if (!isGetRequest(innerRequest)) {
+      if (innerRequest.method !== 'GET') {
         throw new TypeError('Request method is not GET')
       }
 
@@ -126,8 +126,13 @@ export class Cache {
       throw new TypeError('Response status is 206')
     }
 
-    if (!validateResponseVaryHeader(response)) {
-      throw new TypeError('Response vary header is invalid')
+    if (response.headers.has('vary')) {
+      const fieldValues = response.headers.get('vary')?.split(', ') || []
+      for (const fieldValue of fieldValues) {
+        if (fieldValue === '*') {
+          throw new TypeError('Response vary header is invalid')
+        }
+      }
     }
 
     if (innerResponse.body?.locked) {
@@ -147,6 +152,7 @@ export class Cache {
       type: 'put',
       request: innerRequest,
       response: clonedResponse,
+      options: null,
     }
     operations.push(operation)
 
@@ -174,18 +180,13 @@ export class Cache {
    */
   public async delete(
     request: RequestInfo,
-    options?: CacheQueryOptions,
+    options?: CacheQueryOptions
   ): Promise<boolean> {
-    let innerRequest: Request | null = null
+    const innerRequest =
+      request instanceof Request ? request : new Request(request)
 
-    if (request instanceof Request) {
-      innerRequest = request
-
-      if (!isGetRequest(innerRequest)) {
-        return Promise.resolve(false)
-      }
-    } else if (typeof request === 'string') {
-      innerRequest = new Request(request)
+    if (innerRequest.method !== 'GET') {
+      return Promise.resolve(false)
     }
 
     const operations: Array<CacheBatchOperation> = []
@@ -222,13 +223,13 @@ export class Cache {
    */
   public async keys(
     request?: RequestInfo,
-    options?: CacheQueryOptions,
+    options?: CacheQueryOptions
   ): Promise<ReadonlyArray<Request>> {
     let innerRequest: Request | null = null
 
     if (request instanceof Request) {
       innerRequest = request
-      if (!isGetRequest(innerRequest)) {
+      if (innerRequest.method !== 'GET') {
         return Promise.resolve([])
       }
     } else if (typeof request === 'string') {
@@ -265,7 +266,7 @@ export class Cache {
    */
   public async match(
     request: RequestInfo,
-    options?: CacheQueryOptions,
+    options?: CacheQueryOptions
   ): Promise<Response | undefined> {
     const allMatches = await this.matchAll(request, options)
 
@@ -279,18 +280,13 @@ export class Cache {
    */
   public async matchAll(
     request?: RequestInfo,
-    options?: CacheQueryOptions,
+    options?: CacheQueryOptions
   ): Promise<ReadonlyArray<Response>> {
-    let innerRequest: Request
+    const innerRequest =
+      request instanceof Request ? request : new Request(request)
 
-    if (request instanceof Request) {
-      innerRequest = request
-
-      if (request.method !== 'GET' && options?.ignoreMethod) {
-        return []
-      }
-    } else if (typeof request === 'string') {
-      innerRequest = new Request(request)
+    if (innerRequest.method !== 'GET' && !options?.ignoreMethod) {
+      return []
     }
 
     const responses: Array<Response> = []
@@ -302,7 +298,7 @@ export class Cache {
     } else {
       const requestResponses = this.#queryCache(innerRequest, options)
       requestResponses.forEach(([, requestResponse]) =>
-        responses.push(requestResponse.clone()),
+        responses.push(requestResponse.clone())
       )
     }
 
@@ -315,7 +311,7 @@ export class Cache {
   #queryCache(
     requestQuery: Request,
     options?: CacheQueryOptions,
-    targetStorage?: Array<[Request, Response]>,
+    targetStorage?: Array<[Request, Response]>
   ): Array<[Request, Response]> {
     const resultList: Array<[Request, Response]> = []
     const storage =
@@ -332,7 +328,7 @@ export class Cache {
           requestQuery,
           cachedRequest,
           cachedResponse,
-          options,
+          options
         )
       ) {
         resultList.push([cachedRequest.clone(), cachedResponse.clone()])
@@ -349,9 +345,9 @@ export class Cache {
     requestQuery: Request,
     request: Request,
     response: Response | null | undefined,
-    options?: CacheQueryOptions,
+    options?: CacheQueryOptions
   ): boolean {
-    if (options?.ignoreMethod === false && !isGetRequest(request)) {
+    if (!options?.ignoreMethod && request.method !== 'GET') {
       return false
     }
 
@@ -379,7 +375,13 @@ export class Cache {
       return true
     }
 
-    if (!validateResponseVaryHeader(response)) {
+    if (
+      !validateResponseVaryHeader(
+        response.headers.get('vary'),
+        requestQuery,
+        request
+      )
+    ) {
       return false
     }
 
@@ -390,7 +392,7 @@ export class Cache {
    * @see https://w3c.github.io/ServiceWorker/#batch-cache-operations
    */
   #batchCacheOperations(
-    operations: Array<CacheBatchOperation>,
+    operations: Array<CacheBatchOperation>
   ): Array<[Request, Response]> {
     const cache = this.#requestResponseList
     const backupCache = [...cache]
@@ -405,7 +407,7 @@ export class Cache {
 
         if (operation.type === 'delete' && operation.response !== null) {
           throw new TypeError(
-            'Invalid CacheBatchOperation response for the "delete" operation',
+            'Invalid CacheBatchOperation response for the "delete" operation'
           )
         }
 
@@ -414,7 +416,7 @@ export class Cache {
         if (operation.type === 'delete') {
           requestResponses = this.#queryCache(
             operation.request,
-            operation.options,
+            operation.options
           )
 
           for (const requestResponse of requestResponses) {
@@ -423,7 +425,7 @@ export class Cache {
         } else if (operation.type === 'put') {
           if (operation.response === null) {
             throw new TypeError(
-              'Operation response is required for "put" operation',
+              'Operation response is required for "put" operation'
             )
           }
 
@@ -432,13 +434,13 @@ export class Cache {
           if (!isValidRequestUrlScheme(innerRequest)) {
             throw new TypeError('Request URL scheme must be "http" or "https"')
           }
-          if (!isGetRequest(innerRequest)) {
+          if (innerRequest.method !== 'GET') {
             throw new TypeError('Request method must be "GET"')
           }
 
           if (operation.options !== null) {
             throw new TypeError(
-              'Operation options must be null for "put" operations',
+              'Operation options must be null for "put" operations'
             )
           }
 
@@ -467,15 +469,29 @@ function isValidRequestUrlScheme(request: Request): boolean {
   return url.protocol === 'http:' || url.protocol === 'https:'
 }
 
-function isGetRequest(request: Request): boolean {
-  return request.method === 'GET'
-}
+/**
+ * Validate if the given `requestQuery` matches the `vary` header of the `request`.
+ */
+function validateResponseVaryHeader(
+  vary: string | null,
+  requestQuery: Request,
+  request: Request
+): boolean {
+  if (vary == null) {
+    return true
+  }
 
-function validateResponseVaryHeader(response: Response): boolean {
-  const fieldValues = response.headers.get('vary')?.split(', ') || []
+  const fieldValues = vary.split(', ') || []
 
   for (const fieldValue of fieldValues) {
+    // If response marks all request headers as vary, none will match.
     if (fieldValue === '*') {
+      return false
+    }
+
+    if (
+      requestQuery.headers.get(fieldValue) !== request.headers.get(fieldValue)
+    ) {
       return false
     }
   }

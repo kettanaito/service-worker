@@ -1,11 +1,12 @@
 {
-  "include": ["**/*.ts"],
-  "exclude": ["node_modules"],
-  "compilerOptions": {
-    "strict": true,
-    "target": "esnext",
-    "module": "esnext",
-    "moduleResolution": "nodenext",
-    "lib": ["es2022", "dom", "dom.iterable"]
-  }
+  "include": ["**/*"],
+  "exclude": ["node_modules", "build"],
+  "references": [
+    {
+      "path": "./tsconfig.src.json"
+    },
+    {
+      "path": "./tsconfig.test.json"
+    }
+  ]
 }

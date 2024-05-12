@@ -1,0 +1,13 @@
+{
+  "include": ["./vitest.d.ts", "./vitest.setup.ts", "tests"],
+  "references": [
+    {
+      "path": "./tsconfig.src.json"
+    }
+  ],
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "composite": true,
+    "types": ["vitest/globals"]
+  }
+}
