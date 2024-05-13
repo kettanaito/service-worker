@@ -1,6 +1,6 @@
 {
   "type": "module",
-  "name": "node-service-worker",
+  "name": "service-worker",
   "version": "0.0.0",
   "description": "W3C specification-compliant implementation of Service Workers for Node.js",
   "scripts": {
@@ -16,5 +16,10 @@
     "tsx": "^4.9.3",
     "typescript": "^5.4.5",
     "vitest": "^1.6.0"
+  },
+  "author": {
+    "email": "me@kettanaito.com",
+    "name": "Artem Zakharchenko",
+    "url": "https://kettanaito.com"
   }
 }
